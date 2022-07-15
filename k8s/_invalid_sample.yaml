@@ -1,0 +1,8 @@
+---
+apiVersion: com.github.danpfe.eclipsecon/v1
+kind: Sample
+metadata:
+  name: an-invalid-sample
+  namespace: default
+spec:
+  message: "There is some poop on your shoe!"

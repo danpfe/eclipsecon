@@ -1,0 +1,28 @@
+---
+apiVersion: image.openshift.io/v1
+kind: ImageStream
+metadata:
+  name: faux-operator
+  namespace: faux-operator
+
+---
+apiVersion: build.openshift.io/v1
+kind: BuildConfig
+metadata:
+  name: faux-operator
+  namespace: faux-operator
+spec:
+  failedBuildsHistoryLimit: 1
+  successfulBuildsHistoryLimit: 1
+  output:
+    to:
+      kind: ImageStreamTag
+      name: faux-operator:latest
+  source:
+    type: Git
+    git:
+      uri: https://github.com/danpfe/eclipsecon.git
+  strategy:
+    dockerStrategy:
+      dockerfilePath: Containerfile
+    type: Docker

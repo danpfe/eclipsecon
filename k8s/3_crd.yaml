@@ -1,0 +1,60 @@
+---
+apiVersion: apiextensions.k8s.io/v1
+kind: CustomResourceDefinition
+metadata:
+  name: samples.com.github.danpfe.eclipsecon
+spec:
+  conversion:
+    strategy: None
+  group: com.github.danpfe.eclipsecon
+  names:
+    kind: Sample
+    listKind: SampleList
+    plural: samples
+    singular: sample
+    shortNames:
+      - smpl
+  preserveUnknownFields: false
+  scope: Namespaced
+  versions:
+    - name: v1
+      additionalPrinterColumns:
+        - jsonPath: .spec.message
+          name: "The message to reformat"
+          type: string
+        - jsonPath: .status.uppercaseMessage
+          name: "The upper-cased message"
+          type: string
+      served: true
+      storage: true
+      schema:
+        openAPIV3Schema:
+          type: object
+          description: Sample is a resource which simply causes a message to be printed in the Operator's logs and
+            reformats the message to upper-case.
+          required:
+            - spec
+          properties:
+            spec:
+              description: Represents the desired specification of a Sample.
+              type: object
+              nullable: false
+              properties:
+                message:
+                  description: "The message to log and convert into upper-case."
+                  type: string
+                  nullable: false
+              required:
+                - message
+            status:
+              description: Represents the current status of a Sample. In this example, we simple use it to prove the reconciler did something.
+              type: object
+              properties:
+                observedGeneration:
+                  description: "Has it been handled before?"
+                  type: number
+                uppercaseMessage:
+                  description: "Message reformatted to upper-case."
+                  type: string
+      subresources:
+        status: {}

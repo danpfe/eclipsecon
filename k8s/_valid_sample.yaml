@@ -1,0 +1,8 @@
+---
+apiVersion: com.github.danpfe.eclipsecon/v1
+kind: Sample
+metadata:
+  name: a-sample
+  namespace: default
+spec:
+  message: "Hello World!"

@@ -1,0 +1,132 @@
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: faux-operator
+  namespace: faux-operator
+spec:
+  selector:
+    matchLabels:
+      app: faux-operator
+  replicas: 2
+  template:
+    metadata:
+      labels:
+        app: faux-operator
+    spec:
+      serviceAccountName: faux-operator
+      volumes:
+        - name: keystore
+          secret:
+            secretName: faux-operator-keystore
+      containers:
+        - name: faux-operator
+          image: image-registry.openshift-image-registry.svc:5000/faux-operator/faux-operator:latest
+          ports:
+            - containerPort: 8080
+              name: http
+            - containerPort: 8443
+              name: https
+          volumeMounts:
+            - mountPath: /opt/keystore
+              name: keystore
+              readOnly: true
+          env:
+            # Extend the list of forbidden words through MP-Config
+            - name: FAUXOPERATOR_FORBIDDEN_WORDS
+              value: poop,damn,shit
+            - name: POD_NAME
+              valueFrom:
+                fieldRef:
+                  fieldPath: metadata.name
+            - name: JAVA_TOOL_OPTIONS
+              value: >-
+                -Dkumuluzee.server.https.enabled=true
+                -Dkumuluzee.server.https.keystore-path=/opt/keystore/server.p12
+                -Dkumuluzee.server.https.keystore-password=changeit
+                -Dkumuluzee.server.https.key-password=changeit
+                -XX:MinHeapFreeRatio=5
+                -XX:MaxHeapFreeRatio=10
+                -XX:MinMetaspaceFreeRatio=5
+                -XX:MaxMetaspaceFreeRatio=10
+                -XX:MaxRAMPercentage=50
+                -XX:+ExitOnOutOfMemoryError
+                -XX:+ExplicitGCInvokesConcurrent
+          # Probes provided by MP-Health
+          startupProbe:
+            httpGet:
+              port: 8080
+              scheme: HTTP
+              path: /health/ready
+          livenessProbe:
+            httpGet:
+              port: 8080
+              scheme: HTTP
+              path: /health/live
+          resources:
+            limits:
+              # Don't limit CPU unless you're forced to. It usually even outs in the cluster and CPU is compressible.
+              # cpu: 500m
+              # RAM limit should be the same as requested. RAM is not compressible and most apps see
+              # the cgroup limits, not requested RAM! Apps don't survive when we pretend that there is RAM which isn't available.
+              memory: 768Mi
+            requests:
+              # Set what your app needs during normal operation, no less
+              # (and hope that you might end on a node that has a bit more "left")
+              cpu: 50m
+              # Set request and limit RAM to the same. Account not only for heap but also stacks, sockets, file handles, gc cache,
+              # metaspace and so on.
+              memory: 768Mi
+
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: faux-operator
+  namespace: faux-operator
+spec:
+  selector:
+    app: faux-operator
+  ports:
+    - port: 8443
+
+---
+apiVersion: monitoring.coreos.com/v1
+kind: PodMonitor
+metadata:
+  name: faux-operator-pm
+  namespace: faux-operator
+spec:
+  podMetricsEndpoints:
+    - interval: 30s
+      port: http
+      scheme: http
+  selector:
+    matchLabels:
+      app: faux-operator
+
+---
+apiVersion: v1
+data:
+  server.p12: MIIKxAIBAzCCCm4GCSqGSIb3DQEHAaCCCl8EggpbMIIKVzCCBa4GCSqGSIb3DQEHAaCCBZ8EggWbMIIFlzCCBZMGCyqGSIb3DQEMCgECoIIFQDCCBTwwZgYJKoZIhvcNAQUNMFkwOAYJKoZIhvcNAQUMMCsEFOX8cgMJ0RyfxISDMnmS8AlfYBuYAgInEAIBIDAMBggqhkiG9w0CCQUAMB0GCWCGSAFlAwQBKgQQKfP6kiHtG2iniM5SzJMtbwSCBNCZy550KptE2Z8XpPr+5SfSpTLBrg2HEzE8S6lV5hbN6OaADFWSv0e1w1yZL1IM2VCOkfs9Kl0XQwrEZ1z2xvObdX2Y+mWp0pk6fOeS+O/n+CQ6dm0amcsymD/iYPe8Bc+7lrOzFeWBs+2LFnMB5m2kEPd+RFH/tmhEovCn0ngYvfLMq9hDO7hPtUMv6fYK0fsW5iz8O9fcV5U4VYmkaiymhcU2lhu43CmMYKgtm7Xths7S1axOrurwvJrgrKzNTvT2d5wW9OseJtM5uHu6H6JL515MbdPytVM9XC2QSzwVMSYAEumA0AK2KOZeGq8NqVmrkRQbZdh0VZp+bxgtH0K8NSL2GB49D3aU/yQS3AI5DDje3wAAuz9LF0YmQZ65Lh42QrAs2Ath+Mrj5h50AVjl440/keO5TKc6KZ0IDIwZalJ6V7rgbC/de1UkH6guzsa9tEO6bW4JgDOe8PZKDxXFGxZO5EogZcxAN/bDGcP6JV2fM/38NsU7+RH0YBBzEshNtWp1GfrTkURR/oNtVvWPuRzZwTjCh+p6GOVZtKD/U43ZCMY6UCniCWqd3Qagf7L8D8wWb/AJnc6PtMp0RhprvIQDdxl77MngMZ8wlcjxQRm5hbwDh0lMba97MtMTvU44iNDSlflf/Y/fhuSPIPWoUmPFrU6q8fJil1KMXeHKb7BD0AgqKuc+ongqwQDGQeWbe1uGSM5aRpVjmY31joPXyUPUdXpXZ6FhhoRP4gq2J9QJKbVi1lLOTBXSnLqgdz+uEVJK8uPmV5zMDyrPPyCVSRxKQEru5ko61ahFbc4QhV/22wHLXxeJSHa+zRWToQr8omtxPihvruiWefphj4NKTfwu4H3arPNOK8gvkaUgrQdcTpI5L3DsrPj27/C4ok5e72cjvAl1yHLmcG4RFW6iNYBUCDeRIUJl5xPF3W5qSjQryZ+tSxjruIjKdPfr2Gy5anY5WNxstAq8CRuQYIRBDXqEQWlWU7vpNyEtoxbDOiD0NANb/dNZQqKvMWDfAfBxIDxdXrKs6rDRVXy1znS4KEZzEiIaBmMZDgFuHJxql9XrX6H7i6S7CDM2M+nNBRhvkCDWI9H4Dtp7vpok8wgqqL3htq/yk/ox3u/IMDYAneyfzeUkk9s8mUSbI4aZlc+z4CQAOJ28LYrvAE8/cYKkN4/OpY1JWaOMtZO8Hohs3McqdeLlzCv+7biBjRWTfg4cOgWl4d/hGMDARcFkgn+h1BOviQggjxY5uOy/19eCNqKYSwpINAoLTlcm2vM0fh7QBwUuCch7X+uFyUL3O49PxCMIjP1CL/nfQmwjtWSXmAybcSD71USDohpEZ4xGp6pxaEVkdWwjr4JtckelAw6cabEFWPkP3cyvfbGhNHKyzuI07slNtDIJXDeS8WiIGd3rK/YoJ08qONpTGjQUEKP3mpqv6ri+kL1XPRJ4zhAVBiaZf8LG/WSOEnKueJSwHrH4PejqqeGKu+xDvz2aH7s6YSgfCqIPw4UzBoUPQ7uleWxuG5NqU0inE14sEnrwKKgjfpXfCPAOZOkstcP6+fPwacP32ddr04YZZ83PxwQhG8KEO04O220DcX/cPNnbvDdnySVjbJyimRtUd47s92WSo/KxhYnw/KDUeLQCYN5evjFAMBsGCSqGSIb3DQEJFDEOHgwAcwBlAHIAdgBlAHIwIQYJKoZIhvcNAQkVMRQEElRpbWUgMTY2NjAxODYwNjc2NTCCBKEGCSqGSIb3DQEHBqCCBJIwggSOAgEAMIIEhwYJKoZIhvcNAQcBMGYGCSqGSIb3DQEFDTBZMDgGCSqGSIb3DQEFDDArBBT0roIuTUG6E51xP9Hx0BhO2pscNwICJxACASAwDAYIKoZIhvcNAgkFADAdBglghkgBZQMEASoEEAXwPidquQIMbwacZOQvmG6AggQQwGF4bbC0OeLCbtvdXYQCWm7Xjk53qssnzlRXhJfWzlQ2p6Pgy5GbKKI3uO1KgPDtWJwfv0sk1Pj63LOVJR3ohXMnqUZNqVfkmh1EPcsO5FP8b+t7iKFmPIyFnbkYe9tCcbCet/9JFq2cP1qPWFr8M3dzgCh+QfPXMKF3GbfW2u5iVT2CfrY3DWQ6LrRokvvrG+tmcbEfFs6s7tlcI9k9hkjchZJ6Kvmv6ZL4u1lQP/d6PlbR80f2RCeQ5+MuCMqNiG31VpiimCPF/LjpkargerQDNe89Nm0UYY7MImYDr5n86Ta73zesxs/Uk7ZvyUjQtUVwOAz2dcdJP600ydpLyiQTojsdC9u486Ru8xq0D86OUgKyNQvewSgHZ1pcXvLFDlI7L9jF0pV7IT4mP0ksmGT8k5ta4QHROkLBmPsgTNBtoaq/LzWKWW9smLTdVdz8yOTk6lQ/UGZIKh+x4kCMERXpU2el2HoGP5u7clJgRCPf6ndlDKzeV61a5e8W7Vql4GfgyAilnfy7Tf0i+Uoxm+tv+f6RqW4z+cZP2V6O5crsjaTO5EB71EYdbS3V5Gdsi37e88DqPAfzEAGUL60fFGn/xdLt+tE3WrQ8+XeYQwW5pBk9+ofLDzkWZVbV+MC95pSppXJpvQ3fmbBZvz3+TNUZMz6Xth2/nexRkZ4hvlUFQvQ+ABPnP/CEITQQsw8YTDq9mmLBNf6xhAnM3x28ZMuGCp7cMiCVSvO2Js4x/csuMJVLyh90eGQJqO9BOtVrh7pO6BIwGZWb2Xh0wvpJBXOxIGAKacHkKJISZqh9NlpDksIM/xe8byneY5Zj+SwXcHFkWnOfM4rhFMbhsCC+znTYWSOAU84WbROTHQkuqGnOHsGNk0p/GR0oYO2ioDuk3Waa/QiZIR6zO8SjPcg4w9oZ4zuFZ6f1T3qtcFjYM4laWA+zJjqIwwR7M8UGbafyP9fyueX8WkgnQb1rzQJ6IN2b+C2TUf+dTsZV4LTW/64BOsFnSJMacvvDQ2WnvYYwsZ0OiIsZmrgqR7t5BQC2fT+JDJxSNgYUEsYSFV6P8xfjzDF79Ny4EIv4G/eMmVCcdn1WL0pItNjmXLKKlc7YguSaTvP0lhaQnW6v8TqpeDHxhyhh7Hf8yH9rV5SU/YerVoHN0uAxTraZqGiYUorJBq2QD67RLzpu8IJEFd+qqHxA9rEgMn/skfdw4xCGWJ0nXqFrXFtqnG9xe1DdmXh+n929WpohTY45tED+HxszK98AhC6yeLdd/AB6VGeF6sh6Vk2Luq6hb5nF1Ze1Biinds7dVMILLsOcPwSVwqpACMLYRLwEhRcK1N62GvhL4UCxWp3/m/g96YlvKbgVZcZ9ddP0fYOIBWG855y6TkckqL4wTTAxMA0GCWCGSAFlAwQCAQUABCC+HHQbnmaoQPwJCn+IWWWo6VjttWieyF4OQUpC6HwtMwQUswXPFQpdCpuGczCcIk2C1Ayr/ncCAicQ
+kind: Secret
+metadata:
+  name: faux-operator-keystore
+  namespace: faux-operator
+
+---
+# This is relevant during node-restarts or similar (like cluster upgrades).
+# Scaling down or rolling deploys are "intentional" and the PDB won't prevent it,
+# but the above might cause a disruption so this resource will tell the cluster
+# that at least one instance of this app must live to safe-guard for normal
+# operation!
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: faux-operator-pdb
+  namespace: faux-operator
+spec:
+  minAvailable: 1
+  selector:
+    matchLabels:
+      app: faux-operator

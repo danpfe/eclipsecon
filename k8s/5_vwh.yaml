@@ -1,0 +1,29 @@
+---
+apiVersion: admissionregistration.k8s.io/v1
+kind: ValidatingWebhookConfiguration
+metadata:
+  name: validation.samples.com.github.danpfe.eclipsecon
+webhooks:
+  - name: validation.samples.com.github.danpfe.eclipsecon
+    rules:
+      - operations:
+          - CREATE
+          - UPDATE
+        apiGroups:
+          - com.github.danpfe.eclipsecon
+        apiVersions:
+          - v1
+        resources:
+          - samples
+        scope: Namespaced
+    admissionReviewVersions:
+      - v1
+    clientConfig:
+      service:
+        name: faux-operator
+        namespace: faux-operator
+        port: 8443
+        path: /faux-operator/validation
+      # It's simply our PEM-formatted throw-away self-signed certificate that Kubernetes must trust (base64-encoded!)
+      caBundle: LS0tLS1CRUdJTiBDRVJUSUZJQ0FURS0tLS0tCk1JSURtRENDQW9DZ0F3SUJBZ0lFWTAxczZ6QU5CZ2txaGtpRzl3MEJBUXNGQURBcU1TZ3dKZ1lEVlFRRERCOW0KWVhWNExXOXdaWEpoZEc5eUxtWmhkWGd0YjNCbGNtRjBiM0l1YzNaak1DQVhEVEl5TVRBeE56RTBOVFV6T1ZvWQpEekl3TnpJeE1ERTNNVFExTlRNNVdqQXFNU2d3SmdZRFZRUUREQjltWVhWNExXOXdaWEpoZEc5eUxtWmhkWGd0CmIzQmxjbUYwYjNJdWMzWmpNSUlCSWpBTkJna3Foa2lHOXcwQkFRRUZBQU9DQVE4QU1JSUJDZ0tDQVFFQXBkTTYKdkduMGJyd2d6ZnFUUnYwQ3FaRGxDQTYrRUZlWThpSDlIRmtxUm1FQVFsR0w4Z2VERXM0YzRrMDQySE5NUzE3RQpxbDFjYTZxVVlielRWUkxDdVpjTzFMWm5ETHFkZ0pMQ083SWowV0UrNzhvQjRuV1p4UlN0bXdVaEI5QnNzZCtvCmNNaE5HODNqNm9RQlZTVVp0ZGlEN0J1Q1ZCRFdtMWdJMVNqYjF5RDdCMUovdTF3d3JBZzZuRXdoUHVXSk4zanQKNWNOTUZWdHpRSVBNV2tRQllWMUc5NGJRdFZKTXNRaGswZGpZaG5iVkdXTGUxRVBPL01zdnBXOEhGWUZ4ZTYwTgpnTEd5TVpreVVJcC90ak9FN0J0OGZxdzdvd283dnI3S0hzeEhmZ0VWVE9NMDlXL3Q0TGd6QTQwK1E0c0Z1MGg4ClkxamQvUXpCQkx1QUo1ZzE2d0lEQVFBQm80SERNSUhBTUE0R0ExVWREd0VCL3dRRUF3SUZvREJaQmdOVkhSRUUKVWpCUWdoOW1ZWFY0TFc5d1pYSmhkRzl5TG1aaGRYZ3RiM0JsY21GMGIzSXVjM1pqZ2kxbVlYVjRMVzl3WlhKaApkRzl5TG1aaGRYZ3RiM0JsY21GMGIzSXVjM1pqTG1Oc2RYTjBaWEl1Ykc5allXd3dId1lEVlIwakJCZ3dGb0FVCk5uMGJBZVhJSmUrNVo1aWhxaTdjM1JOaE9HSXdIUVlEVlIwT0JCWUVGRFo5R3dIbHlDWHZ1V2VZb2FvdTNOMFQKWVRoaU1CTUdBMVVkSlFRTU1Bb0dDQ3NHQVFVRkJ3TUJNQTBHQ1NxR1NJYjNEUUVCQ3dVQUE0SUJBUUNFbzNuagpydUpRTGErTW84Y2xYK25YbjVyN1BRMEFnUVZNQ3FRQ2huaXBLVWpueG0yeTFUNU5RRGVGRkdnTSt2TVVNbjdlCjNoa2I5eE1lWXFGZlNJU1FIdklOSFV6V1Z1SkdpNERjbFdtNXNLNHVxSVFldHl4dXAyY2pzSDFtWSs2OG5KbkEKeHJXMFZYTVlMNkdFOURSUHhUZEd1S0Y2dncrNnVIZ2NIbkpnZEVsMmh0M3RtYzdUWThCMkxncmphWFh3RXVRLwpRNXM1aFNhMEErVDd6REN4YThQVjFCR1A4cnptNUhiUUJDZ2c4RHhTamdNQnNpb1JlejBWdnl0VnphcWV2RmpICjZveWkwSCtEb01tR0YwMDBmRUJRYncreXFTOEZ6MnRVczRnbXl5ampDaUwwTkM5b1p1YVZsaWVqMlRxK0lEMTUKR0J1OHBFNlNyc3Q1L21IcQotLS0tLUVORCBDRVJUSUZJQ0FURS0tLS0tCg==
+    sideEffects: None
